@@ -1,13 +1,8 @@
 import sys
 import numpy as np
-from scipy import io, signal
-
-import sounddevice as sd
 
 import pyqtgraph as pg 
 from pyqtgraph.Qt import QtCore, QtWidgets
-from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
-from PyQt6.QtCore import QUrl
 
 from MainWindow import AudioVisualizerWindow
 
