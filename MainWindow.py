@@ -5,18 +5,18 @@ from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
 
 from AudioFile import AudioFile
 
-# TODO: Add QTimer to intermitently report track position to audio file object for real time FFT
-
 class AudioVisualizerWindow(QtWidgets.QMainWindow):
    def __init__(self):
       super().__init__()
       self.setWindowTitle('AudioVisualizer')
+      self.audio_file = None
 
       self.player = QMediaPlayer()
       self.player.positionChanged.connect(self.update_position)
       self.player.durationChanged.connect(self.update_duration)
       self.audio_output = QAudioOutput()
       self.player.setAudioOutput(self.audio_output)
+      self.player.playbackStateChanged.connect(self.handle_playback_state)
 
       # Central widget
       central = QtWidgets.QWidget()
@@ -24,9 +24,10 @@ class AudioVisualizerWindow(QtWidgets.QMainWindow):
       central.setLayout(layout)
       self.setCentralWidget(central)
 
-
       # Plot widget
       self.plot_widget = pg.PlotWidget()
+      self.plot_widget.setYRange(-1, 1)
+      self.curve = self.plot_widget.plot(pen='y')
       layout.addWidget(self.plot_widget)
 
       # Playback controls
@@ -66,7 +67,11 @@ class AudioVisualizerWindow(QtWidgets.QMainWindow):
       self.load_button = QtWidgets.QPushButton('Load Audio File')
       self.load_button.clicked.connect(self.open_file_dialog)
       layout.addWidget(self.load_button)
-      
+
+      self.visual_timer = QtCore.QTimer()
+      self.visual_timer.setInterval(10)
+      self.visual_timer.timeout.connect(self.update_spectrum)
+
    def open_file_dialog(self):
       file_path, _ = QtWidgets.QFileDialog.getOpenFileName(
          self, 'Select audio file', '', 'WAV files (*.wav);;All files (*.*)'
@@ -75,9 +80,15 @@ class AudioVisualizerWindow(QtWidgets.QMainWindow):
          self.audio_file = AudioFile(file_path)
          self.player.setSource(QtCore.QUrl.fromLocalFile(file_path))
 
+   def update_spectrum(self): # TODO: Add FFT
+      if self.audio_file is None:
+         return
 
-   def load_and_plot(self, file_path): # TODO: Finish this part
-      pass
+      current_sec = self.player.position() / 1000.0
+      chunk = self.audio_file.get_chunk_at_time(current_sec)
+
+      x = np.arange(len(chunk))
+      self.curve.setData(x, chunk)
 
    def update_position(self, position_ms):
       self.slider.setValue(position_ms)
@@ -87,6 +98,12 @@ class AudioVisualizerWindow(QtWidgets.QMainWindow):
 
    def update_duration(self, duration_ms):
       self.slider.setRange(0, duration_ms)
+
+   def handle_playback_state(self, state):
+      if state == QMediaPlayer.PlaybackState.PlayingState:
+         self.visual_timer.start()
+      else:
+         self.visual_timer.stop()
 
    @staticmethod
    def format_time(ms):
