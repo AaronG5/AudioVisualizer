@@ -3,6 +3,7 @@ import pyqtgraph as pg
 from pyqtgraph.Qt import QtCore, QtWidgets
 from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
 
+from scipy.fft import rfft, rfftfreq
 from AudioFile import AudioFile
 
 class AudioVisualizerWindow(QtWidgets.QMainWindow):
@@ -24,11 +25,21 @@ class AudioVisualizerWindow(QtWidgets.QMainWindow):
       central.setLayout(layout)
       self.setCentralWidget(central)
 
-      # Plot widget
-      self.plot_widget = pg.PlotWidget()
-      self.plot_widget.setYRange(-1, 1)
-      self.curve = self.plot_widget.plot(pen='y')
-      layout.addWidget(self.plot_widget)
+      # Plot widgets
+      plots = QtWidgets.QHBoxLayout()
+
+      self.waveform_plot_widget = pg.PlotWidget()
+      self.waveform_plot_widget.setYRange(-1, 1)
+      self.waveform_curve = self.waveform_plot_widget.plot(pen='y')
+
+      self.spectrum_plot_widget = pg.PlotWidget()
+      self.spectrum_plot_widget.getPlotItem().setLogMode(x=True, y=False)
+      self.spectrum_plot_widget.setYRange(-100, 100)
+      self.spectrum_curve = self.spectrum_plot_widget.plot(pen='g')
+
+      plots.addWidget(self.waveform_plot_widget)
+      plots.addWidget(self.spectrum_plot_widget)
+      layout.addLayout(plots)
 
       # Playback controls
       controls = QtWidgets.QHBoxLayout()
@@ -69,8 +80,11 @@ class AudioVisualizerWindow(QtWidgets.QMainWindow):
       layout.addWidget(self.load_button)
 
       self.visual_timer = QtCore.QTimer()
-      self.visual_timer.setInterval(10)
+      self.visual_timer.setInterval(24)
       self.visual_timer.timeout.connect(self.update_spectrum)
+
+      self.elapsed_timer = QtCore.QElapsedTimer()
+      self.position_offset_ms = 0
 
    def open_file_dialog(self):
       file_path, _ = QtWidgets.QFileDialog.getOpenFileName(
@@ -80,21 +94,31 @@ class AudioVisualizerWindow(QtWidgets.QMainWindow):
          self.audio_file = AudioFile(file_path)
          self.player.setSource(QtCore.QUrl.fromLocalFile(file_path))
 
-   def update_spectrum(self): # TODO: Add FFT
+   def update_spectrum(self):
       if self.audio_file is None:
          return
 
-      current_sec = self.player.position() / 1000.0
+      current_sec = (self.position_offset_ms + self.elapsed_timer.elapsed()) / 1000.0
       chunk = self.audio_file.get_chunk_at_time(current_sec)
 
-      x = np.arange(len(chunk))
-      self.curve.setData(x, chunk)
+      # Waveform
+      x_waveform = np.arange(len(chunk))
+      self.waveform_curve.setData(x_waveform, chunk)
+
+      # Spectrum
+      windowed = chunk * np.hanning(len(chunk))
+      magnitude = np.abs(rfft(windowed))
+      magnitude_db = 20 * np.log10(magnitude + 1e-10)
+      freqs = rfftfreq(len(windowed), d=1.0 / self.audio_file.sample_rate)
+      self.spectrum_curve.setData(freqs[:-1], magnitude_db[:-1])
 
    def update_position(self, position_ms):
       self.slider.setValue(position_ms)
       self.time_label.setText(
          f'{self.format_time(position_ms)} / {self.format_time(self.player.duration())}'
       )
+      self.position_offset_ms = position_ms
+      self.elapsed_timer.restart()
 
    def update_duration(self, duration_ms):
       self.slider.setRange(0, duration_ms)
@@ -102,6 +126,7 @@ class AudioVisualizerWindow(QtWidgets.QMainWindow):
    def handle_playback_state(self, state):
       if state == QMediaPlayer.PlaybackState.PlayingState:
          self.visual_timer.start()
+         self.elapsed_timer.restart()
       else:
          self.visual_timer.stop()
 
