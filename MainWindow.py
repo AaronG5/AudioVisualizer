@@ -1,16 +1,33 @@
+import re
+from pathlib import Path
+from enum import Enum
+
 import numpy as np
 import pyqtgraph as pg 
+
 from pyqtgraph.Qt import QtCore, QtWidgets
 from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
 
 from scipy.fft import rfft, rfftfreq
 from AudioFile import AudioFile
 
+class RepeatMode(Enum):
+   NONE = 0    # Play through list, stop at end
+   ALL  = 1    # Play through list, wrap to start
+   ONE  = 2    # Repeat current track
+
+REPEAT_ICONS = {
+   RepeatMode.NONE: 'X',
+   RepeatMode.ALL: '🔁',
+   RepeatMode.ONE: '🔂',
+}
+
 class AudioVisualizerWindow(QtWidgets.QMainWindow):
    def __init__(self):
       super().__init__()
       self.setWindowTitle('AudioVisualizer')
       self.audio_file = None
+      self.repeat_mode = RepeatMode.NONE
 
       self.player = QMediaPlayer()
       self.player.positionChanged.connect(self.update_position)
@@ -18,6 +35,7 @@ class AudioVisualizerWindow(QtWidgets.QMainWindow):
       self.audio_output = QAudioOutput()
       self.player.setAudioOutput(self.audio_output)
       self.player.playbackStateChanged.connect(self.handle_playback_state)
+      self.player.mediaStatusChanged.connect(self.handle_media_status)
 
       # Central widget
       central = QtWidgets.QWidget()
@@ -41,11 +59,18 @@ class AudioVisualizerWindow(QtWidgets.QMainWindow):
       plots.addWidget(self.spectrum_plot_widget)
       layout.addLayout(plots)
 
+      # Current audio file name
+      self.track_label = QtWidgets.QLabel('No file loaded')
+      layout.addWidget(self.track_label)
+      self.track_label.font().setBold(True)
+
       # Playback controls
       controls = QtWidgets.QHBoxLayout()
       self.play_button = QtWidgets.QPushButton('►')
       self.pause_button = QtWidgets.QPushButton('❚❚')
       self.stop_button = QtWidgets.QPushButton('⏮')
+      self.skip_forward_button = QtWidgets.QPushButton('⏭')
+      self.repeat_button = QtWidgets.QPushButton('X')
 
       # for button in (self.play_button, self.pause_button, self.stop_button):
 	   #    button.setStyleSheet("font-size: 24px;")
@@ -55,14 +80,20 @@ class AudioVisualizerWindow(QtWidgets.QMainWindow):
       self.play_button.setFont(font)
       self.pause_button.setFont(font)
       self.stop_button.setFont(font)
+      self.skip_forward_button.setFont(font)
+      self.repeat_button.setFont(font)
 
       self.play_button.clicked.connect(self.player.play)
       self.pause_button.clicked.connect(self.player.pause)
       self.stop_button.clicked.connect(self.player.stop)
+      # self.skip_forward_button.clicked.connect(self.player.skip_forward) # TODO: Implement
+      self.repeat_button.clicked.connect(self.cycle_repeat_mode)
 
       controls.addWidget(self.play_button)
       controls.addWidget(self.pause_button)
       controls.addWidget(self.stop_button)
+      controls.addWidget(self.skip_forward_button)
+      controls.addWidget(self.repeat_button)
       layout.addLayout(controls)
 
       # Progress bar slider
@@ -91,8 +122,19 @@ class AudioVisualizerWindow(QtWidgets.QMainWindow):
          self, 'Select audio file', '', 'WAV files (*.wav);;All files (*.*)'
       )
       if file_path:
-         self.audio_file = AudioFile(file_path)
-         self.player.setSource(QtCore.QUrl.fromLocalFile(file_path))
+         folder = Path(file_path).parent
+         self.wav_files = sorted(folder.glob('*.wav'), key=self.natural_key)
+         picked = Path(file_path).resolve()
+         index = self.wav_files.index(picked.resolve())
+         self.load_track(index)
+
+   def load_track(self, index: int):
+      self.current_index = index
+      file_path = self.wav_files[index]
+      self.audio_file = AudioFile(str(file_path))
+      self.player.setSource(QtCore.QUrl.fromLocalFile(str(file_path)))
+      self.reset_position()
+      self.track_label.setText(f'{file_path.stem} [{index + 1} / {len(self.wav_files)}]')
 
    def update_spectrum(self):
       if self.audio_file is None:
@@ -120,6 +162,9 @@ class AudioVisualizerWindow(QtWidgets.QMainWindow):
       self.position_offset_ms = position_ms
       self.elapsed_timer.restart()
 
+   def reset_position(self):
+      self.update_position(0)
+
    def update_duration(self, duration_ms):
       self.slider.setRange(0, duration_ms)
 
@@ -129,6 +174,25 @@ class AudioVisualizerWindow(QtWidgets.QMainWindow):
          self.elapsed_timer.restart()
       else:
          self.visual_timer.stop()
+
+   def handle_media_status(self, status: QMediaPlayer.MediaStatus):
+      if status == QMediaPlayer.MediaStatus.EndOfMedia:
+         if self.repeat_mode == RepeatMode.NONE:
+            pass
+         if self.repeat_mode == RepeatMode.ALL:
+            pass # Handle loading the next track in the index list
+
+   def natural_key(self, path: Path):
+      return [int(c) if c.isdigit() else c.lower()
+            for c in re.split(r'(\d+)', path.name)]
+
+   def cycle_repeat_mode(self):
+      self.repeat_mode = RepeatMode((self.repeat_mode.value + 1) % len(RepeatMode))
+      self.repeat_button.setText(REPEAT_ICONS[self.repeat_mode])
+      if self.repeat_mode == RepeatMode.ONE:
+         self.player.setLoops(-1)
+      else:
+         self.player.setLoops(1)
 
    @staticmethod
    def format_time(ms):
