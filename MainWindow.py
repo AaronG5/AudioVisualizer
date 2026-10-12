@@ -1,6 +1,7 @@
 import re
 from pathlib import Path
 from enum import Enum
+from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
 import pyqtgraph as pg 
@@ -27,7 +28,13 @@ class AudioVisualizerWindow(QtWidgets.QMainWindow):
       super().__init__()
       self.setWindowTitle('AudioVisualizer')
       self.audio_file = None
+      self.wav_files = []
+      self.current_index = None
       self.repeat_mode = RepeatMode.NONE
+
+      # Background loading of the next track's AudioFile
+      self.loader = ThreadPoolExecutor(max_workers=1)
+      self.preload = None   # (index, Future) or None
 
       self.player = QMediaPlayer()
       self.player.positionChanged.connect(self.update_position)
@@ -62,7 +69,9 @@ class AudioVisualizerWindow(QtWidgets.QMainWindow):
       # Current audio file name
       self.track_label = QtWidgets.QLabel('No file loaded')
       layout.addWidget(self.track_label)
-      self.track_label.font().setBold(True)
+      label_font = self.track_label.font()
+      label_font.setBold(True)
+      self.track_label.setFont(label_font)
 
       # Playback controls
       controls = QtWidgets.QHBoxLayout()
@@ -86,7 +95,7 @@ class AudioVisualizerWindow(QtWidgets.QMainWindow):
       self.play_button.clicked.connect(self.player.play)
       self.pause_button.clicked.connect(self.player.pause)
       self.stop_button.clicked.connect(self.player.stop)
-      # self.skip_forward_button.clicked.connect(self.player.skip_forward) # TODO: Implement
+      self.skip_forward_button.clicked.connect(self.skip_forward)
       self.repeat_button.clicked.connect(self.cycle_repeat_mode)
 
       controls.addWidget(self.play_button)
@@ -122,19 +131,62 @@ class AudioVisualizerWindow(QtWidgets.QMainWindow):
          self, 'Select audio file', '', 'WAV files (*.wav);;All files (*.*)'
       )
       if file_path:
-         folder = Path(file_path).parent
-         self.wav_files = sorted(folder.glob('*.wav'), key=self.natural_key)
          picked = Path(file_path).resolve()
-         index = self.wav_files.index(picked.resolve())
-         self.load_track(index)
+         self.wav_files = sorted(picked.parent.glob('*.wav'), key=self.natural_key)
+         self.preload = None
+         self.load_track(self.wav_files.index(picked))
 
    def load_track(self, index: int):
       self.current_index = index
       file_path = self.wav_files[index]
-      self.audio_file = AudioFile(str(file_path))
       self.player.setSource(QtCore.QUrl.fromLocalFile(str(file_path)))
+      self.audio_file = self.take_preload(index) or AudioFile(str(file_path))
       self.reset_position()
       self.track_label.setText(f'{file_path.stem} [{index + 1} / {len(self.wav_files)}]')
+      self.player.play()
+      self.start_preload()
+
+   def next_index(self):
+      if not self.wav_files:
+         return None
+      next_index = self.current_index + 1
+      if next_index < len(self.wav_files):
+         return next_index
+      if self.repeat_mode == RepeatMode.NONE:
+         return None
+      return 0
+
+   def start_preload(self):
+      next_index = self.next_index()
+      if self.preload is not None:
+         preload_index, future = self.preload
+         if preload_index == next_index:
+            return
+         future.cancel()
+      if next_index is None:
+         self.preload = None
+         return
+      future = self.loader.submit(AudioFile, str(self.wav_files[next_index]))
+      self.preload = (next_index, future)
+
+   def take_preload(self, index: int):
+      if self.preload is None:
+         return None
+      preload_index, future = self.preload
+      self.preload = None
+      if preload_index != index:
+         future.cancel()
+         return None
+      try:
+         return future.result()
+      except Exception as e:
+         print(f'Preload failed: {e}')
+         return None
+
+   def skip_forward(self):
+      next_index = self.next_index()
+      if next_index is not None:
+         self.load_track(next_index)
 
    def update_spectrum(self):
       if self.audio_file is None:
@@ -177,12 +229,12 @@ class AudioVisualizerWindow(QtWidgets.QMainWindow):
 
    def handle_media_status(self, status: QMediaPlayer.MediaStatus):
       if status == QMediaPlayer.MediaStatus.EndOfMedia:
-         if self.repeat_mode == RepeatMode.NONE:
-            pass
-         if self.repeat_mode == RepeatMode.ALL:
-            pass # Handle loading the next track in the index list
+         next_index = self.next_index()
+         if next_index is not None:
+            self.load_track(next_index)
 
-   def natural_key(self, path: Path):
+   @staticmethod
+   def natural_key(path: Path):
       return [int(c) if c.isdigit() else c.lower()
             for c in re.split(r'(\d+)', path.name)]
 
@@ -193,6 +245,12 @@ class AudioVisualizerWindow(QtWidgets.QMainWindow):
          self.player.setLoops(-1)
       else:
          self.player.setLoops(1)
+      if self.current_index is not None:
+         self.start_preload()
+
+   def closeEvent(self, event):
+      self.loader.shutdown(wait=False, cancel_futures=True)
+      super().closeEvent(event)
 
    @staticmethod
    def format_time(ms):
