@@ -77,7 +77,8 @@ class AudioVisualizerWindow(QtWidgets.QMainWindow):
       controls = QtWidgets.QHBoxLayout()
       self.play_button = QtWidgets.QPushButton('►')
       self.pause_button = QtWidgets.QPushButton('❚❚')
-      self.stop_button = QtWidgets.QPushButton('⏮')
+      self.stop_button = QtWidgets.QPushButton('◼')
+      self.skip_backward_button = QtWidgets.QPushButton('⏮')
       self.skip_forward_button = QtWidgets.QPushButton('⏭')
       self.repeat_button = QtWidgets.QPushButton('X')
 
@@ -89,15 +90,18 @@ class AudioVisualizerWindow(QtWidgets.QMainWindow):
       self.play_button.setFont(font)
       self.pause_button.setFont(font)
       self.stop_button.setFont(font)
+      self.skip_backward_button.setFont(font)
       self.skip_forward_button.setFont(font)
       self.repeat_button.setFont(font)
 
       self.play_button.clicked.connect(self.player.play)
       self.pause_button.clicked.connect(self.player.pause)
       self.stop_button.clicked.connect(self.player.stop)
+      self.skip_backward_button.clicked.connect(self.skip_backward)
       self.skip_forward_button.clicked.connect(self.skip_forward)
       self.repeat_button.clicked.connect(self.cycle_repeat_mode)
 
+      controls.addWidget(self.skip_backward_button)
       controls.addWidget(self.play_button)
       controls.addWidget(self.pause_button)
       controls.addWidget(self.stop_button)
@@ -156,6 +160,16 @@ class AudioVisualizerWindow(QtWidgets.QMainWindow):
          return None
       return 0
 
+   def prev_index(self):
+      if not self.wav_files:
+         return None
+      prev_index = self.current_index - 1
+      if prev_index >= 0:
+         return prev_index
+      if self.repeat_mode == RepeatMode.NONE:
+         return None
+      return -1
+
    def start_preload(self):
       next_index = self.next_index()
       if self.preload is not None:
@@ -188,6 +202,18 @@ class AudioVisualizerWindow(QtWidgets.QMainWindow):
       if next_index is not None:
          self.load_track(next_index)
 
+   def skip_backward(self):
+      if self.player.position() > 3000:
+         self.reset_position()
+      else:
+         prev_index = self.prev_index()
+         if prev_index is None:
+            self.reset_position()
+         else:
+            if prev_index < 0: 
+               prev_index += len(self.wav_files)
+            self.load_track(prev_index)
+
    def update_spectrum(self):
       if self.audio_file is None:
          return
@@ -215,7 +241,7 @@ class AudioVisualizerWindow(QtWidgets.QMainWindow):
       self.elapsed_timer.restart()
 
    def reset_position(self):
-      self.update_position(0)
+      self.player.setPosition(0)
 
    def update_duration(self, duration_ms):
       self.slider.setRange(0, duration_ms)
