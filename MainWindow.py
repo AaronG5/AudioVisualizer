@@ -132,11 +132,14 @@ class AudioVisualizerWindow(QtWidgets.QMainWindow):
 
    def open_file_dialog(self):
       file_path, _ = QtWidgets.QFileDialog.getOpenFileName(
-         self, 'Select audio file', '', 'WAV files (*.wav);;All files (*.*)'
+         self, 'Select audio file', '', 'WAV files (*.wav *.WAV);;All files (*.*)'
       )
       if file_path:
          picked = Path(file_path).resolve()
-         self.wav_files = sorted(picked.parent.glob('*.wav'), key=self.natural_key)
+         self.wav_files = sorted(
+            (p for p in picked.parent.iterdir() if p.is_file() and p.suffix.lower() == '.wav'),
+            key=self.natural_key
+         )
          self.preload = None
          self.load_track(self.wav_files.index(picked))
 
