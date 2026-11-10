@@ -9,7 +9,6 @@ import pyqtgraph as pg
 from pyqtgraph.Qt import QtCore, QtWidgets
 from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
 
-from scipy.fft import rfft, rfftfreq
 from AudioFile import AudioFile
 
 class RepeatMode(Enum):
@@ -230,10 +229,10 @@ class AudioVisualizerWindow(QtWidgets.QMainWindow):
 
       # Spectrum
       windowed = chunk * np.hanning(len(chunk))
-      magnitude = np.abs(rfft(windowed))
+      magnitude = np.abs(np.fft.rfft(windowed))
       magnitude_db = 20 * np.log10(magnitude + 1e-10)
-      freqs = rfftfreq(len(windowed), d=1.0 / self.audio_file.sample_rate)
-      self.spectrum_curve.setData(freqs[:-1], magnitude_db[:-1])
+      freqs = np.fft.rfftfreq(len(windowed), d=1.0 / self.audio_file.sample_rate)
+      self.spectrum_curve.setData(freqs[1:], magnitude_db[:-1])
 
    def update_position(self, position_ms):
       self.slider.setValue(position_ms)
