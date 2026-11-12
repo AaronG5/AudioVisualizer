@@ -9,7 +9,7 @@ import pyqtgraph as pg
 from pyqtgraph.Qt import QtCore, QtWidgets
 from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
 
-from AudioFile import AudioFile
+from src.audio_file import AudioFile
 
 DEFAULT_AUDIO_DIR = Path.home() / 'Music'
 

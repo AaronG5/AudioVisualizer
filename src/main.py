@@ -2,7 +2,7 @@ import sys
 
 from pyqtgraph.Qt import QtWidgets
 
-from MainWindow import AudioVisualizerWindow
+from src.main_window import AudioVisualizerWindow
 
 def main():
    app = QtWidgets.QApplication(sys.argv)
