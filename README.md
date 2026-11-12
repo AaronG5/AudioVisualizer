@@ -1,8 +1,8 @@
-# AUDIO VISUALISER
+# AUDIO VISUALIZER
 
-Small audio visualiser panel.
+Small audio visualizer panel.
 
-![Screenshot](screenshots/image.png)
+![demo](demo/audiovisualizer_demo.gif)
 
 Load a WAV file and it plays while two live graphs follow the music:
 
