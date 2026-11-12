@@ -232,7 +232,7 @@ class AudioVisualizerWindow(QtWidgets.QMainWindow):
       magnitude = np.abs(np.fft.rfft(windowed))
       magnitude_db = 20 * np.log10(magnitude + 1e-10)
       freqs = np.fft.rfftfreq(len(windowed), d=1.0 / self.audio_file.sample_rate)
-      self.spectrum_curve.setData(freqs[1:], magnitude_db[:-1])
+      self.spectrum_curve.setData(freqs[1:], magnitude_db[1:])
 
    def update_position(self, position_ms):
       self.slider.setValue(position_ms)
