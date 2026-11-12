@@ -11,6 +11,8 @@ from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
 
 from AudioFile import AudioFile
 
+DEFAULT_AUDIO_DIR = Path.home() / 'Music'
+
 class RepeatMode(Enum):
    NONE = 0    # Play through list, stop at end
    ALL  = 1    # Play through list, wrap to start
@@ -130,8 +132,9 @@ class AudioVisualizerWindow(QtWidgets.QMainWindow):
       self.position_offset_ms = 0
 
    def open_file_dialog(self):
+      start_dir = str(self.wav_files[0].parent) if self.wav_files else str(DEFAULT_AUDIO_DIR)
       file_path, _ = QtWidgets.QFileDialog.getOpenFileName(
-         self, 'Select audio file', '', 'WAV files (*.wav *.WAV);;All files (*.*)'
+         self, 'Select audio file', start_dir, 'WAV files (*.wav *.WAV);;All files (*.*)'
       )
       if file_path:
          picked = Path(file_path).resolve()
