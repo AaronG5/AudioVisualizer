@@ -2,6 +2,8 @@
 
 Small audio visualiser panel.
 
+![Screenshot](screenshots/image.png)
+
 Load a WAV file and it plays while two live graphs follow the music:
 
 - **Waveform**: the shape of the sound wave at the current moment (time domain sound signal).
