@@ -8,3 +8,8 @@ dependencies = [
     "pyqtgraph==0.14.0",
     "soundfile==0.14.0",
 ]
+[project.scripts]
+audiovisualizer = "audiovisualizer.__main__:main"
+[build-system]
+requires = ["uv_build>=0.13.1,<0.14.0"]
+build-backend = "uv_build"

@@ -14,14 +14,14 @@ Load a WAV file and it plays while two live graphs follow the music:
 - Python 3.15 or newer (developed with Python 3.15)
 - Windows, macOS or Linux
 
-## Runing
+## Running
 
 In order to run the project, `uv` must be installed.
 
 From the project root:
 
 ```bash
-uv run main.py
+uv run audiovisualizer
 ```
 
 On some minimal Linux installs the window may fail to open with `Could not load the Qt platform plugin "xcb"`. Installing `libxcb-cursor0` (Debian/Ubuntu: `sudo apt install libxcb-cursor0`) fixes it.
