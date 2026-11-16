@@ -13,3 +13,71 @@ audiovisualizer = "audiovisualizer.__main__:main"
 [build-system]
 requires = ["uv_build>=0.13.1,<0.14.0"]
 build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "basedpyright>=1.40.2",
+    "ruff>=0.17.5",
+]
+
+[tool.basedpyright]
+typeCheckingMode = "recommended"
+reportUnknownMemberType = false
+reportUnknownVariableType = false
+reportUnusedCallResult = false
+reportMissingTypeStubs = false
+reportAny = false
+
+[tool.ruff]
+indent-width = 3
+lint.select = [
+   # https://beta.ruff.rs/docs/rules
+   "I",     # isort
+   "S",     # flake8-bandit
+   "A",     # flake8-builtins
+   "ARG",   # flake8-unused-arguments
+   "ASYNC", # flake8-async
+   "B",     # flake8-bugbear
+   "BLE",   # flake8-blind-except
+   "C4",    # flake8-comprehensions
+   "C90",   # McCabe cyclomatic complexity
+   "DJ",    # flake8-django
+   "DTZ",   # flake8-datetimez
+   "EM",    # flake8-errmsg
+   "EXE",   # flake8-executable
+   "F",     # Pyflakes
+   "FA",    # flake8-future-annotations
+   "FLY",   # flynt
+   "G",     # flake8-logging-format
+   "ICN",   # flake8-import-conventions
+   "INP",   # flake8-no-pep420
+   "INT",   # flake8-gettext
+   "ISC",   # flake8-implicit-str-concat
+   "N",     # pep8-naming
+   "NPY",   # NumPy-specific rules
+   "PD",    # pandas-vet
+   "PGH",   # pygrep-hooks
+   "PIE",   # flake8-pie
+   "PL",    # Pylint
+   "PT",    # flake8-pytest-style
+   "PYI",   # flake8-pyi
+   "RSE",   # flake8-raise
+   "RUF",   # Ruff-specific rules
+   "SIM",   # flake8-simplify
+   "SLF",   # flake8-self
+   "T10",   # flake8-debugger
+   "TD",    # flake8-todos
+   "TID",   # flake8-tidy-imports
+   "UP",    # pyupgrade
+   "W",     # pycodestyle
+   "ANN",   # flake8-annotations
+   "COM",   # flake8-commas
+   "D",     # pydocstyle
+   "ERA",   # eradicate
+   "FBT",   # flake8-boolean-trap
+   "PTH",   # flake8-use-pathlib
+   "Q",     # flake8-quotes
+   "RET",   # flake8-return
+   "TCH",   # flake8-type-checking
+   "TRY",   # tryceratops "YTT",
+]
